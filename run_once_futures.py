@@ -101,20 +101,14 @@ def run_cycle():
         pm_result = pm.run()
         actions = pm_result.get("actions", [])
         if actions:
-            for a in actions:
-                logger.info(f"Sortie {a['ticker']} {a['side']} — {a['reason']}")
+            for trade in actions:
+                logger.info(
+                    f"Sortie {trade['ticker']} {trade['side']} — {trade['exit_reason']}"
+                )
                 try:
-                    # On n'a que le décision summary, on récupère le trade complet
-                    # depuis la DB pour l'alerte
-                    closed = executor.get_closed_trades(limit=10)
-                    matching = [t for t in closed
-                                if t["ticker"] == a["ticker"] and
-                                   t["side"] == a["side"] and
-                                   t["exit_reason"] == a["reason"]]
-                    if matching:
-                        alertes.alerte_close_position(matching[0])
+                    alertes.alerte_close_position(trade)
                 except Exception as e:
-                    logger.warning(f"Alerte fermeture {a['ticker']} échouée : {e}")
+                    logger.warning(f"Alerte fermeture {trade['ticker']} échouée : {e}")
         else:
             logger.info("Pas de sortie ce cycle")
     except Exception as e:

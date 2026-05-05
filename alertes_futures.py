@@ -145,7 +145,7 @@ def alerte_cycle_summary(account_state: dict, open_positions: list[dict],
     ]
 
     if btc_regime:
-        state_emoji = {"bullish": "📈", "bearish": "📉", "neutral": "↔️"}.get(
+        state_emoji = {"bull": "📈", "bear": "📉", "neutral": "↔️"}.get(
             btc_regime["state"], "❓")
         lines.append(
             f"{state_emoji} BTC régime : *{btc_regime['state'].upper()}* "
@@ -177,13 +177,14 @@ def alerte_cycle_summary(account_state: dict, open_positions: list[dict],
             lines.append(f"  _... et {len(open_positions) - 5} autres_")
         lines.append("")
 
-    # Actions du cycle
+    # Actions du cycle (trades complets retournés par position_manager)
     if actions:
         lines.append(f"*Sorties ce cycle ({len(actions)}) :*")
         for a in actions:
             emoji = "🟢" if (a.get("pnl_net_usdt", 0) or 0) > 0 else "🔴"
+            reason = a.get("exit_reason") or a.get("reason", "?")
             lines.append(
-                f"{emoji} `{a['ticker']}` {a['side'].upper()} — {a['reason']} "
+                f"{emoji} `{a['ticker']}` {a['side'].upper()} — {reason} "
                 f"`${a.get('pnl_net_usdt', 0):+.2f}`"
             )
         lines.append("")

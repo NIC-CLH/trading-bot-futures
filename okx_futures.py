@@ -35,6 +35,10 @@ API_KEY = os.getenv("DEMO_OKX_API_KEY", "")
 SECRET = os.getenv("DEMO_OKX_SECRET", "")
 PASSPHRASE = os.getenv("DEMO_OKX_PASSPHRASE", "")
 
+# Session HTTP partagée — réutilise les connexions TCP+TLS (économise ~50ms/call).
+# Critique sur le scan parallèle de 99 paires.
+SESSION = requests.Session()
+
 
 # ─── Authentification ─────────────────────────────────────────────────────────
 
@@ -66,7 +70,15 @@ def _headers(method: str, path: str, body: str = "", auth: bool = False) -> dict
     }
 
 
-def _get(path: str, params: dict | None = None, auth: bool = False) -> list:
+def _get(path: str, params: dict | None = None, auth: bool = False,
+         safe: bool = False) -> list:
+    """
+    Appel GET OKX. Tous les requêtes portent le header x-simulated-trading: 1
+    (mode démo), même les endpoints publics — exigé sur eea.okx.com.
+
+    safe=True : retourne [] en cas d'erreur HTTP/JSON au lieu de raise.
+                Utilisé par les analyseurs qui doivent dégrader gracieusement.
+    """
     if params:
         query = "&".join(f"{k}={v}" for k, v in params.items())
         signed_path = f"{path}?{query}"
@@ -74,12 +86,21 @@ def _get(path: str, params: dict | None = None, auth: bool = False) -> list:
         signed_path = path
 
     url = OKX_BASE + signed_path
-    resp = requests.get(url, headers=_headers("GET", signed_path, auth=auth), timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-    if data.get("code") != "0":
-        raise Exception(f"OKX error {data.get('code')} : {data.get('msg')}")
-    return data.get("data", [])
+    try:
+        resp = SESSION.get(url, headers=_headers("GET", signed_path, auth=auth), timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("code") != "0":
+            if safe:
+                logger.debug(f"OKX {path} : code={data.get('code')} msg={data.get('msg')}")
+                return []
+            raise Exception(f"OKX error {data.get('code')} : {data.get('msg')}")
+        return data.get("data", [])
+    except Exception as e:
+        if safe:
+            logger.debug(f"OKX {path} : {e}")
+            return []
+        raise
 
 
 # ─── Univers SWAP ─────────────────────────────────────────────────────────────

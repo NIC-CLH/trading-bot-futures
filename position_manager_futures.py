@@ -137,13 +137,9 @@ def run() -> dict:
                 pos["id"], decision["exit_price"], decision["reason"]
             )
             if result:
-                actions.append({
-                    "ticker": pos["ticker"],
-                    "side": pos["side"],
-                    "reason": decision["reason"],
-                    "pnl_net_usdt": result["pnl_net_usdt"],
-                    "pnl_pct_margin": result["pnl_pct_margin"],
-                })
+                # Retourne le trade complet — run_once peut alerter directement
+                # sans re-chercher en DB (évite race si 2 fermetures identiques).
+                actions.append(result)
         else:
             # P&L latent (pour le log uniquement)
             if pos["side"] == "long":

@@ -11,8 +11,8 @@ Bot 2 :
   - Inversion long/short selon l'état (Bot 1 ne fait que bloquer les longs)
 
 Etats :
-  bullish  → longs autorisés, shorts bloqués
-  bearish  → shorts autorisés, longs bloqués
+  bull  → longs autorisés, shorts bloqués
+  bear  → shorts autorisés, longs bloqués
   neutral  → both autorisés (au démarrage, ou avant le 1er flip)
 
 Persistance : data/btc_regime_state.json
@@ -61,7 +61,7 @@ def get_regime() -> dict:
 
     Returns:
         {
-          "state":         "bullish" | "bearish" | "neutral",
+          "state":         "bull" | "bear" | "neutral",
           "btc_price":     float,
           "ma50_4h":       float,
           "deviation_pct": float,         # signe : > 0 si BTC au-dessus
@@ -74,8 +74,8 @@ def get_regime() -> dict:
       1. Récupère 60 bougies 4h (suffisant pour MA50 + buffer)
       2. Calcule deviation = (BTC − MA50) / MA50
       3. Etat candidat :
-         - dev > +1.5% → 'bullish'
-         - dev < −1.5% → 'bearish'
+         - dev > +1.5% → 'bull'
+         - dev < −1.5% → 'bear'
          - sinon       → garde l'état précédent (sticky)
       4. Si l'état candidat diffère de l'actuel :
          - vérifie le cooldown (4h depuis dernier flip)
@@ -104,9 +104,9 @@ def get_regime() -> dict:
 
     # ── Etat candidat selon la deviation ────────────────────────────────────
     if deviation > HYST_BAND:
-        candidate = "bullish"
+        candidate = "bull"
     elif deviation < -HYST_BAND:
-        candidate = "bearish"
+        candidate = "bear"
     else:
         # Dans la bande neutre → maintien (sticky)
         candidate = prev_state if prev_state != "neutral" else "neutral"
@@ -133,9 +133,9 @@ def get_regime() -> dict:
     _save_state({"state": new_state, "last_flip_ts": last_flip_ts})
 
     # Mapping état → autorisations directionnelles
-    if new_state == "bullish":
+    if new_state == "bull":
         allow_long, allow_short = True, False
-    elif new_state == "bearish":
+    elif new_state == "bear":
         allow_long, allow_short = False, True
     else:  # neutral (avant le 1er flip)
         allow_long, allow_short = True, True

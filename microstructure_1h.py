@@ -15,30 +15,17 @@ Score : -1.5 à +1.5 (intégré dans le score composite scanner avec poids ~20%)
 """
 
 import logging
-import time
 
-import requests
+import okx_futures as okx
 
 logger = logging.getLogger(__name__)
 
-OKX_PUBLIC = "https://eea.okx.com"
 DEFAULT_PERIOD = "1H"  # Bot 1 utilisait "5m" — adapté au cycle 1h Bot 2
 
 
 def _get_public(path: str, params: dict | None = None) -> list:
-    try:
-        if params:
-            query = "&".join(f"{k}={v}" for k, v in params.items())
-            url = f"{OKX_PUBLIC}{path}?{query}"
-        else:
-            url = f"{OKX_PUBLIC}{path}"
-        resp = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
-        data = resp.json()
-        if data.get("code") == "0":
-            return data.get("data", [])
-    except Exception as e:
-        logger.debug(f"OKX public {path} : {e}")
-    return []
+    """Wrapper sur okx._get(safe=True) — porte le header simulated-trading."""
+    return okx._get(path, params, auth=False, safe=True)
 
 
 # ─── Open Interest ────────────────────────────────────────────────────────────
@@ -191,19 +178,21 @@ def get_liquidation_context(inst_id: str) -> dict:
 
 def analyze(inst_id: str) -> dict:
     """
-    Microstructure score (hors funding, géré séparément).
+    Microstructure score (hors funding, géré séparément dans funding_score.py).
 
     Pondération interne :
-      L/S ratio   40%
-      Taker vol   40%
+      L/S ratio    40%
+      Taker volume 40%
       Liquidations 20%
 
     Score final ∈ [-1.5, +1.5], avec verdict + signaux pour log.
+
+    Note : Open Interest n'est pas inclus dans le score (Bot 1 le scorait à 0
+    aussi). On le supprime de l'appel pour économiser ~10s/cycle sur 99 paires.
     """
     ls = get_long_short_ratio(inst_id)
     taker = get_taker_volume(inst_id)
     liqs = get_liquidation_context(inst_id)
-    oi = get_open_interest(inst_id)
 
     score = (ls["score"] * 0.40 + taker["score"] * 0.40 + liqs["score"] * 0.20)
     score = round(max(-1.5, min(1.5, score)), 2)
@@ -222,8 +211,6 @@ def analyze(inst_id: str) -> dict:
     else:
         verdict = "MICROSTRUCTURE NEUTRE"
 
-    time.sleep(0.3)  # rate-limit doux
-
     return {
         "inst_id": inst_id,
         "score": score,
@@ -232,7 +219,6 @@ def analyze(inst_id: str) -> dict:
         "long_short": ls,
         "taker_volume": taker,
         "liquidations": liqs,
-        "open_interest": oi,
     }
 
 

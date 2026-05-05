@@ -25,7 +25,7 @@ chaque signal à paper_executor.open_position().
 """
 
 import logging
-import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import asset_buckets
 import btc_regime_filter
@@ -36,6 +36,11 @@ import okx_futures as okx
 import regime_detector_1h as regime
 import technical_signals_1h as tech
 import volume_profile_1h as vp
+
+# Workers parallèles pour le scan : OKX rate limit ~20 req/s, on en utilise ~10
+# pour rester confortable. 99 paires × 7 calls / 10 workers = ~70 calls/worker
+# en série, ~3-5s/worker → cycle complet ~30-60s (vs 6-7min en séquentiel).
+SCAN_WORKERS = 10
 
 logger = logging.getLogger(__name__)
 
@@ -248,28 +253,26 @@ def run_scan(limit_pairs: int | None = None) -> list[dict]:
         pairs = pairs[:limit_pairs]
     logger.info(f"Univers à scanner : {len(pairs)} perps")
 
-    # 3. Analyse de chaque paire (séquentiel — rate limit OKX)
+    # 3. Analyse parallèle des paires (gain ~5x vs séquentiel)
     signals = []
-    skipped = {"exclude": 0, "ohlcv": 0, "below_threshold": 0,
-               "btc_filter": 0, "neutral": 0}
-
-    for i, inst_id in enumerate(pairs, 1):
-        try:
-            result = analyze_pair(inst_id, btc_regime)
-            if result:
-                signals.append(result)
-                logger.info(
-                    f"[{i}/{len(pairs)}] {inst_id:25} "
-                    f"score={result['score']:+.2f} | side={result['side'].upper()} | "
-                    f"bucket={result['bucket']}"
-                )
-            else:
-                logger.debug(f"[{i}/{len(pairs)}] {inst_id} — pas de signal")
-        except Exception as e:
-            logger.warning(f"[{i}/{len(pairs)}] {inst_id} — erreur : {e}")
-
-        # rate limit doux : OKX accepte ~20 req/s mais on lui laisse de l'air
-        time.sleep(0.1)
+    completed = 0
+    with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as ex:
+        futures = {ex.submit(analyze_pair, inst_id, btc_regime): inst_id
+                   for inst_id in pairs}
+        for fut in as_completed(futures):
+            inst_id = futures[fut]
+            completed += 1
+            try:
+                result = fut.result()
+                if result:
+                    signals.append(result)
+                    logger.info(
+                        f"[{completed}/{len(pairs)}] {inst_id:25} "
+                        f"score={result['score']:+.2f} | side={result['side'].upper()} | "
+                        f"bucket={result['bucket']}"
+                    )
+            except Exception as e:
+                logger.warning(f"[{completed}/{len(pairs)}] {inst_id} — erreur : {e}")
 
     # 4. Tri par |score| décroissant
     signals.sort(key=lambda s: abs(s["score"]), reverse=True)

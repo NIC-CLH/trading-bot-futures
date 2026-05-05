@@ -1,4 +1,5 @@
 .env
 __pycache__/
 *.pyc
-data/*.db
+# data/*.db laissé tracké pour persister l'état du compte simulé
+# entre les runs GitHub Actions (cron 1h)

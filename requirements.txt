@@ -1,0 +1,9 @@
+requests>=2.31.0
+pandas>=2.0.0
+numpy>=1.24.0
+python-dotenv>=1.0.0
+
+# Régime detector (HMM + GARCH + ruptures) — optionnels avec fallbacks
+hmmlearn>=0.3.0
+arch>=6.0.0
+ruptures>=1.1.0

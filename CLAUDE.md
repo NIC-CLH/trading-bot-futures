@@ -194,3 +194,42 @@ python scanner_futures.py          # scan complet 99 paires (à venir)
 - Bot dédié Bot 2 (séparé du Bot 1)
 - Token et chat_id dans `.env`
 - Format des alertes : prefixe 🤖 pour le distinguer du Bot 1 spot
+
+---
+
+## 🚨 TODO avant phase live — ordres TP/SL serveur-side OKX
+
+**Problème actuel (architecture cron 1h)** :
+Entre deux cycles, si le prix touche le SL, le bot ne le voit qu'au prochain
+réveil. En paper, le wick detection (`evaluate_position` lit high/low de la
+bougie 1h) close au prix SL exact — résultat optimiste. **En live, le bot
+enverrait un ordre market au prochain cycle, à un prix possiblement bien plus
+défavorable** (slippage de 1-3% sur dump rapide).
+
+**Solution avant live** :
+À chaque ouverture de position, attacher des **ordres TP et SL serveur-side**
+sur OKX. OKX surveille en continu et exécute automatiquement quand le prix
+touche, **sans dépendre du cycle de notre bot**.
+
+**Implémentation** :
+Dans le futur `live_executor.py` (qui remplacera `paper_executor.py` en live),
+au `place_order` futures, passer ces 4 paramètres OKX en plus :
+
+```python
+# OKX V5 perpetual swap — paramètres TP/SL natifs
+"tpTriggerPx":   str(tp_price),     # déclenche le TP au-dessus
+"tpOrdPx":       "-1",              # -1 = market à exécution
+"slTriggerPx":   str(sl_price),     # déclenche le SL en-dessous
+"slOrdPx":       "-1",
+"tpTriggerPxType": "last",          # référence : last price (alternative : mark)
+"slTriggerPxType": "last",
+```
+
+Effet : OKX gère SL/TP en continu, le cycle 1h n'a plus qu'à :
+- ouvrir des positions (avec TP/SL inclus)
+- surveiller le time stop 24h
+- collecter les positions fermées par OKX (réconciliation au scan)
+
+**Note Bot 1** : avait abandonné les algo orders OCO en SPOT car ils gelaient
+les fonds (frozenBal). En FUTURES, ce problème n'existe pas — la marge est
+déjà allouée à la position, donc TP/SL natifs sont safe et standards.

@@ -17,8 +17,10 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+# strip() défensif : tout caractère parasite (espace, tab, \n) collé avec
+# le secret fait retourner Telegram un 404 silencieux ("Not Found").
+TELEGRAM_TOKEN = (os.getenv("TELEGRAM_TOKEN") or "").strip()
+TELEGRAM_CHAT_ID = (os.getenv("TELEGRAM_CHAT_ID") or "").strip()
 
 
 # ─── Envoi générique ──────────────────────────────────────────────────────────

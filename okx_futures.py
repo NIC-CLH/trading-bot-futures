@@ -31,9 +31,11 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 OKX_BASE = "https://eea.okx.com"  # compte démo OKX EEA (même domaine que prod EEA)
-API_KEY = os.getenv("DEMO_OKX_API_KEY", "")
-SECRET = os.getenv("DEMO_OKX_SECRET", "")
-PASSPHRASE = os.getenv("DEMO_OKX_PASSPHRASE", "")
+# strip() défensif : caractère parasite (espace, tab, \n) lors du paste
+# d'un secret peut casser l'auth silencieusement (HMAC mismatch).
+API_KEY = (os.getenv("DEMO_OKX_API_KEY") or "").strip()
+SECRET = (os.getenv("DEMO_OKX_SECRET") or "").strip()
+PASSPHRASE = (os.getenv("DEMO_OKX_PASSPHRASE") or "").strip()
 
 # Session HTTP partagée — réutilise les connexions TCP+TLS (économise ~50ms/call).
 # Critique sur le scan parallèle de 99 paires.

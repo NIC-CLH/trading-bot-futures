@@ -51,6 +51,14 @@ except Exception as _e:
     # Pas d'alerte Telegram ici — module alertes peut être celui qui a planté
     sys.exit(1)
 
+# Diagnostic env (utile en GitHub Actions pour repérer un secret manquant)
+_tg_token = os.getenv("TELEGRAM_TOKEN", "")
+_tg_chat = os.getenv("TELEGRAM_CHAT_ID", "")
+print(f"[DIAG] TELEGRAM_TOKEN: {len(_tg_token)} chars, "
+      f"prefix={_tg_token[:6] if _tg_token else 'EMPTY'}")
+print(f"[DIAG] TELEGRAM_CHAT_ID: {_tg_chat or 'EMPTY'}")
+print(f"[DIAG] DEMO_OKX_API_KEY: {len(os.getenv('DEMO_OKX_API_KEY', ''))} chars")
+
 
 # ─── Sécurités ────────────────────────────────────────────────────────────────
 

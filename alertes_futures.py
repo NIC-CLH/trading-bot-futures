@@ -24,9 +24,17 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # ─── Envoi générique ──────────────────────────────────────────────────────────
 
 def send(message: str, parse_mode: str = "Markdown") -> bool:
-    """Envoie un message Telegram. Non-bloquant : retourne False si échec."""
+    """Envoie un message Telegram. Non-bloquant : retourne False si échec.
+
+    Log le retour complet de Telegram pour pouvoir débugger les échecs
+    silencieux (token corrompu, chat_id wrong, parse_mode error, etc.).
+    """
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        logger.error("TELEGRAM_TOKEN ou TELEGRAM_CHAT_ID manquant")
+        logger.error(
+            "TELEGRAM env vars missing : token=%s chat_id=%s",
+            "OK" if TELEGRAM_TOKEN else "MISSING",
+            "OK" if TELEGRAM_CHAT_ID else "MISSING",
+        )
         return False
     try:
         resp = requests.post(
@@ -39,9 +47,18 @@ def send(message: str, parse_mode: str = "Markdown") -> bool:
             },
             timeout=10,
         )
-        return resp.json().get("ok", False)
+        data = resp.json()
+        if not data.get("ok"):
+            logger.error(
+                "Telegram REFUSED status=%d error_code=%s desc=%s",
+                resp.status_code,
+                data.get("error_code"),
+                data.get("description"),
+            )
+            return False
+        return True
     except Exception as e:
-        logger.error(f"Erreur Telegram : {e}")
+        logger.error(f"Telegram exception : {e}")
         return False
 
 

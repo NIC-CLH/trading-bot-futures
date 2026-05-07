@@ -45,22 +45,30 @@ SCAN_WORKERS = 10
 logger = logging.getLogger(__name__)
 
 
-# ─── Régime → seuil d'entrée ─────────────────────────────────────────────────
+# ─── Seuil d'entrée par bucket + régime ──────────────────────────────────────
 
-def regime_to_threshold(regime_name: str) -> float:
+def bucket_base_threshold(bucket: str) -> float:
     """
-    Le régime BTC (ou du ticker) module le seuil minimum pour entrer.
-    En tendance forte : on accepte des scores plus bas.
-    En range/sideways : on durcit.
+    Seuil minimum par bucket. Reflète le scoring max théorique différent par
+    classe d'actif (cf. config_futures pour la justification).
     """
-    if regime_name in ("bull", "bear"):
-        return 1.5
-    return 2.0  # sideways = strict
+    return {
+        "majors": cfg.SCORE_MIN_MAJORS,
+        "midcap": cfg.SCORE_MIN_MIDCAP,
+        "memes":  cfg.SCORE_MIN_MEMES,
+    }.get(bucket, cfg.SCORE_MIN)
 
 
-def effective_threshold(ticker_regime: str) -> float:
-    """Le seuil hard (config) bornnée par le seuil régime."""
-    return max(cfg.SCORE_MIN, regime_to_threshold(ticker_regime))
+def effective_threshold(bucket: str, ticker_regime: str) -> float:
+    """
+    Seuil final = base du bucket + ajustement régime du ticker.
+      Trending (bull/bear) → on accepte le seuil de base
+      Sideways             → +0.2 (durcir un peu, signaux moins fiables)
+    """
+    base = bucket_base_threshold(bucket)
+    if ticker_regime == "sideways":
+        return base + 0.2
+    return base
 
 
 # ─── Gates binaires news + macro (placeholders pour Phase 3) ─────────────────
@@ -183,19 +191,20 @@ def analyze_pair(inst_id: str, btc_regime: dict | None = None) -> dict | None:
     if side is None:
         return None
 
-    # ── Filtre BTC régime ────────────────────────────────────────────────────
-    if btc_regime is None:
-        btc_regime = btc_regime_filter.get_regime()
-    if side == "long" and not btc_regime.get("allow_long", True):
-        logger.debug(f"{inst_id} : LONG bloqué par régime BTC")
-        return None
-    if side == "short" and not btc_regime.get("allow_short", True):
-        logger.debug(f"{inst_id} : SHORT bloqué par régime BTC")
-        return None
+    # ── Filtre BTC régime (optionnel — désactivé par défaut) ────────────────
+    if cfg.ENABLE_BTC_DIRECTIONAL_FILTER:
+        if btc_regime is None:
+            btc_regime = btc_regime_filter.get_regime()
+        if side == "long" and not btc_regime.get("allow_long", True):
+            logger.debug(f"{inst_id} : LONG bloqué par régime BTC")
+            return None
+        if side == "short" and not btc_regime.get("allow_short", True):
+            logger.debug(f"{inst_id} : SHORT bloqué par régime BTC")
+            return None
 
-    # ── Seuil d'entrée modulé par régime du ticker ───────────────────────────
+    # ── Seuil d'entrée par bucket + régime du ticker ─────────────────────────
     ticker_regime = rg.get("regime", "sideways")
-    threshold = effective_threshold(ticker_regime)
+    threshold = effective_threshold(bucket, ticker_regime)
     if abs(score) < threshold:
         return None
 

@@ -12,7 +12,18 @@ Différences clés :
 
 # ── Stratégie ────────────────────────────────────────────────────────────────
 PAIR_FILTER_MIN_VOLUME = 500_000      # USDT volume 24h minimum (élimine illiquides)
-SCORE_MIN = 1.7                        # seuil pour déclencher entrée (Bot 1 = 1.5)
+
+# Seuil de score MINIMUM par bucket pour déclencher une entrée.
+# Reasoning : le scoring max varie selon le bucket (poids différents).
+#   majors max théorique = 1.83 → seuil 1.5 = 82% du max (sniper)
+#   midcap max théorique = 2.16 → seuil 1.3 = 60% du max (équilibré)
+#   memes  max théorique = 2.45 → seuil 1.0 = 41% du max (volume sur memes)
+# Garder un R/R 1.33 (TP 4% / SL 3%) → break-even WR = 43%
+SCORE_MIN_MAJORS = 1.5
+SCORE_MIN_MIDCAP = 1.3
+SCORE_MIN_MEMES  = 1.0
+SCORE_MIN = 1.0  # fallback si bucket inconnu — pas utilisé en pratique
+
 LEVIER_DEFAUT = 2                      # levier standard
 LEVIER_MAX = 3                         # autorisé sur setups A+
 SCORE_A_PLUS = 2.5                     # seuil score pour autoriser 3x
@@ -28,10 +39,13 @@ CYCLE_HOURS = 1                        # boucle horaire (vs 4h Bot 1)
 TF_BIAS = "1H"                         # tendance directionnelle
 TF_ENTRY = "15m"                       # timing d'entrée plus fin
 
-# ── Filtre BTC MA50 (inversé pour shorts) ────────────────────────────────────
-# BTC > MA50 (haussier) → longs autorisés, shorts plus durs à valider
-# BTC < MA50 (baissier) → longs bloqués, shorts autorisés
-BTC_MA_FILTER_INVERSE = True
+# ── Filtre BTC MA50 directionnel ──────────────────────────────────────────────
+# Quand True : seuls les longs autorisés en bull, seuls les shorts en bear.
+# Quand False : les deux côtés toujours autorisés (long les forts, short les faibles).
+# Désactivé par défaut pour avoir plus de signaux et capter les short opportunities
+# même quand BTC monte (le bot peut shorter un alt qui sous-performe).
+ENABLE_BTC_DIRECTIONAL_FILTER = False
+BTC_MA_FILTER_INVERSE = True  # legacy, gardé pour rétrocompatibilité
 
 # ── Mode ─────────────────────────────────────────────────────────────────────
 PAPER_MODE = True                      # simulation sur compte démo OKX

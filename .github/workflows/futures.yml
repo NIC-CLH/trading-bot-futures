@@ -38,7 +38,9 @@ jobs:
           DEMO_OKX_SECRET:     ${{ secrets.DEMO_OKX_SECRET }}
           DEMO_OKX_PASSPHRASE: ${{ secrets.DEMO_OKX_PASSPHRASE }}
           TELEGRAM_TOKEN:      ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+          # chat_id hardcode car ce n'est pas un vrai secret (juste un ID Telegram
+          # public) et le secret GitHub Actions semble corrompu (chat not found 400).
+          TELEGRAM_CHAT_ID:    "5247371776"
         run: python run_once_futures.py
 
       - name: Persist state (paper_trades.db + regime cache)

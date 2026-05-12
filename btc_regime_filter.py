@@ -28,7 +28,8 @@ import okx_futures as okx
 logger = logging.getLogger(__name__)
 
 STATE_PATH = "data/btc_regime_state.json"
-HYST_BAND = 0.015          # ±1.5% autour de la MA50 = zone d'indécision
+HYST_BAND = 0.015          # ±1.5% autour de la MA50 = bande d'hystérésis pour state
+STRONG_BAND = 0.03         # ±3% = seuil "very bull" / "very bear" pour blocage directionnel
 COOLDOWN_HOURS = 4         # pas de flip dans les 4h suivant un changement
 MA_PERIOD = 50
 
@@ -132,12 +133,17 @@ def get_regime() -> dict:
 
     _save_state({"state": new_state, "last_flip_ts": last_flip_ts})
 
-    # Mapping état → autorisations directionnelles
-    if new_state == "bull":
+    # Mapping état → autorisations directionnelles (partiel)
+    # Bug détecté au bilan : en bull (+4%) on a pris 7 shorts perdants (12% WR).
+    # Nouveau garde-fou : ne bloquer la direction QUE si BTC est "very bull/bear"
+    # (déviation >= ±3% au-dessus/dessous MA50_4h). Entre les deux : both autorisés.
+    abs_dev = abs(deviation)
+    if new_state == "bull" and abs_dev >= STRONG_BAND:
         allow_long, allow_short = True, False
-    elif new_state == "bear":
+    elif new_state == "bear" and abs_dev >= STRONG_BAND:
         allow_long, allow_short = False, True
-    else:  # neutral (avant le 1er flip)
+    else:
+        # bull/bear faible OU neutral → both autorisés (le scoring filtre)
         allow_long, allow_short = True, True
 
     return {

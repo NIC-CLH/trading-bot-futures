@@ -63,17 +63,22 @@ def evaluate_position(pos: dict, current_price: float,
     h = last_high if last_high is not None else current_price
     l = last_low if last_low is not None else current_price
 
-    # P1 — Liquidation
-    if side == "long" and l <= liq:
-        return {"action": "CLOSE", "exit_price": liq, "reason": "liquidation"}
-    if side == "short" and h >= liq:
-        return {"action": "CLOSE", "exit_price": liq, "reason": "liquidation"}
-
-    # P2 — Stop loss (prioritaire sur TP en cas de double-touche dans la même bougie)
+    # P1 — Stop loss (PRIORITAIRE sur liquidation)
+    # Physiquement le prix passe forcément par le SL avant d'atteindre la liq.
+    # Si la bougie a touché SL et LIQ, on close au SL — simule le comportement
+    # qu'aurait OKX avec un ordre stop conditionnel attaché à la position.
+    # (Bug détecté au bilan 34 trades : 2 liquidations BRETT+NOT = -$52.88,
+    # 81% des pertes totales, alors qu'elles auraient dû être stops à -$2-3.)
     if side == "long" and l <= sl:
         return {"action": "CLOSE", "exit_price": sl, "reason": "sl"}
     if side == "short" and h >= sl:
         return {"action": "CLOSE", "exit_price": sl, "reason": "sl"}
+
+    # P2 — Liquidation (sécurité : ne devrait jamais arriver si SL marche)
+    if side == "long" and l <= liq:
+        return {"action": "CLOSE", "exit_price": liq, "reason": "liquidation"}
+    if side == "short" and h >= liq:
+        return {"action": "CLOSE", "exit_price": liq, "reason": "liquidation"}
 
     # P3 — Take profit
     if side == "long" and h >= tp:

@@ -15,14 +15,16 @@ PAIR_FILTER_MIN_VOLUME = 500_000      # USDT volume 24h minimum (élimine illiqu
 
 # Seuil de score MINIMUM par bucket pour déclencher une entrée.
 # Reasoning : le scoring max varie selon le bucket (poids différents).
-#   majors max théorique = 1.83 → seuil 1.5 = 82% du max (sniper)
-#   midcap max théorique = 2.16 → seuil 1.3 = 60% du max (équilibré)
-#   memes  max théorique = 2.45 → seuil 1.0 = 41% du max (volume sur memes)
-# Garder un R/R 1.33 (TP 4% / SL 3%) → break-even WR = 43%
-SCORE_MIN_MAJORS = 1.5
-SCORE_MIN_MIDCAP = 1.3
-SCORE_MIN_MEMES  = 1.0
-SCORE_MIN = 1.0  # fallback si bucket inconnu — pas utilisé en pratique
+#   majors max théorique = 1.83 → seuil 1.4 = 76% du max (plus accessible)
+#   midcap max théorique = 2.16 → seuil 1.2 = 55% du max (équilibré)
+#   memes  max théorique = 2.45 → seuil 1.3 = 53% du max (durci vs 1.0 initial)
+# Bilan 34 trades : 33/34 sur memes (1.0 trop bas), 1/34 sur majors (1.5 trop haut).
+# Rééquilibrage pour distribuer entre buckets.
+# Garder R/R 1.33 (TP 4% / SL 3%) → break-even WR = 43%
+SCORE_MIN_MAJORS = 1.4
+SCORE_MIN_MIDCAP = 1.2
+SCORE_MIN_MEMES  = 1.3
+SCORE_MIN = 1.2  # fallback si bucket inconnu — pas utilisé en pratique
 
 LEVIER_DEFAUT = 2                      # levier standard
 LEVIER_MAX = 3                         # autorisé sur setups A+
@@ -39,13 +41,15 @@ CYCLE_HOURS = 1                        # boucle horaire (vs 4h Bot 1)
 TF_BIAS = "1H"                         # tendance directionnelle
 TF_ENTRY = "15m"                       # timing d'entrée plus fin
 
-# ── Filtre BTC MA50 directionnel ──────────────────────────────────────────────
-# Quand True : seuls les longs autorisés en bull, seuls les shorts en bear.
-# Quand False : les deux côtés toujours autorisés (long les forts, short les faibles).
-# Désactivé par défaut pour avoir plus de signaux et capter les short opportunities
-# même quand BTC monte (le bot peut shorter un alt qui sous-performe).
-ENABLE_BTC_DIRECTIONAL_FILTER = False
-BTC_MA_FILTER_INVERSE = True  # legacy, gardé pour rétrocompatibilité
+# ── Filtre BTC MA50 directionnel (partiel) ────────────────────────────────────
+# Bilan 34 trades : 7 shorts perdants sur 8 (12% WR) en bull market.
+# Solution : activer le filtre mais en mode partiel via btc_regime_filter :
+#   - BTC very bull (deviation >= +3% MA50_4h) → shorts bloqués
+#   - BTC very bear (deviation <= -3%)         → longs bloqués
+#   - Entre ±3%                                  → both autorisés
+# Le scoring (1.4/1.2/1.3) reste le filtre primaire de qualité.
+ENABLE_BTC_DIRECTIONAL_FILTER = True
+BTC_MA_FILTER_INVERSE = True  # legacy
 
 # ── Mode ─────────────────────────────────────────────────────────────────────
 PAPER_MODE = True                      # simulation sur compte démo OKX

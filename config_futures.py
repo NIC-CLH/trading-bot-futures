@@ -14,24 +14,29 @@ Différences clés :
 PAIR_FILTER_MIN_VOLUME = 500_000      # USDT volume 24h minimum (élimine illiquides)
 
 # Seuil de score MINIMUM par bucket pour déclencher une entrée.
-# Reasoning : le scoring max varie selon le bucket (poids différents).
-#   majors max théorique = 1.83 → seuil 1.4 = 76% du max (plus accessible)
-#   midcap max théorique = 2.16 → seuil 1.2 = 55% du max (équilibré)
-#   memes  max théorique = 2.45 → seuil 1.3 = 53% du max (durci vs 1.0 initial)
-# Bilan 34 trades : 33/34 sur memes (1.0 trop bas), 1/34 sur majors (1.5 trop haut).
-# Rééquilibrage pour distribuer entre buckets.
-# Garder R/R 1.33 (TP 4% / SL 3%) → break-even WR = 43%
-SCORE_MIN_MAJORS = 1.4
-SCORE_MIN_MIDCAP = 1.2
-SCORE_MIN_MEMES  = 1.3
-SCORE_MIN = 1.2  # fallback si bucket inconnu — pas utilisé en pratique
+# Backtest 90j × 20 paires (2317 trades baseline) : aucune config profitable
+# sauf MAJORS LONG only avec seuil 1.6 et R/R 3:1 (PF 1.76, WR 50%, P&L +49%).
+# Conclusion : edge réel UNIQUEMENT sur les majors, en LONG, avec seuil strict.
+# Midcap/memes désactivés via ALLOWED_BUCKETS ci-dessous.
+SCORE_MIN_MAJORS = 1.6  # 87% du max théorique 1.83 — strict, qualité prouvée backtest
+SCORE_MIN_MIDCAP = 1.2  # inchangé mais inactif (bucket désactivé)
+SCORE_MIN_MEMES  = 1.3  # inchangé mais inactif (bucket désactivé)
+SCORE_MIN = 1.6  # fallback
+
+# Filtres durs (issus du backtest 90j) :
+# - LONG only : shorts ont 32% WR partout → perdants systématiques
+# - Majors only : midcap/memes ont PF < 0.8, pas d'edge
+ALLOWED_BUCKETS = {"majors"}  # ex: {"majors", "midcap"} pour élargir plus tard
+ALLOWED_SIDES = {"long"}      # ex: {"long", "short"} pour réactiver shorts
 
 LEVIER_DEFAUT = 2                      # levier standard
 LEVIER_MAX = 3                         # autorisé sur setups A+
 SCORE_A_PLUS = 2.5                     # seuil score pour autoriser 3x
 
 # ── Position management ──────────────────────────────────────────────────────
-TP_PCT = 0.04                          # +4% take profit (sur prix sous-jacent)
+# R/R 3:1 (validé backtest 90j sur majors LONG) — break-even WR = 25%
+# Au WR 50% mesuré, marge confortable : expectancy +1.16% / trade sur marge.
+TP_PCT = 0.09                          # +9% take profit (sur prix sous-jacent)
 SL_PCT = 0.03                          # -3% stop loss (sur prix sous-jacent)
 MAX_HOLDING_HOURS = 24                 # time stop : sortie forcée après 24h
 MAINTENANCE_MARGIN_PCT = 0.005         # OKX BTC perp ~0.5% (pour calcul liquidation)

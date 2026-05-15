@@ -134,6 +134,10 @@ def analyze_pair(inst_id: str, btc_regime: dict | None = None) -> dict | None:
     bucket = asset_buckets.classify(inst_id)
     if bucket == "exclude":
         return None
+    # Backtest 90j a montré : midcap PF 0.75, memes PF 0.7 — pas d'edge.
+    # Garder uniquement les buckets validés (majors par défaut).
+    if bucket not in cfg.ALLOWED_BUCKETS:
+        return None
 
     weights = asset_buckets.get_bucket_weights(bucket)
     features = asset_buckets.get_bucket_features(bucket)
@@ -189,6 +193,9 @@ def analyze_pair(inst_id: str, btc_regime: dict | None = None) -> dict | None:
     # ── Direction du signal ──────────────────────────────────────────────────
     side = "long" if score > 0 else "short" if score < 0 else None
     if side is None:
+        return None
+    # Backtest 90j a montré : shorts à 32% WR systématiquement perdants.
+    if side not in cfg.ALLOWED_SIDES:
         return None
 
     # ── Filtre BTC régime (optionnel — désactivé par défaut) ────────────────

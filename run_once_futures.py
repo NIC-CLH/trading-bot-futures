@@ -185,17 +185,29 @@ def run_cycle():
     print(f"Signaux  : {len(signals)} détectés, {len(signals_taken)} pris")
     print(f"Sorties  : {len(actions)}")
 
-    try:
-        alertes.alerte_cycle_summary(
-            account_state=state,
-            open_positions=open_positions,
-            actions=actions,
-            signals_taken=signals_taken,
-            btc_regime=btc_regime,
+    # Ne PAS envoyer de notif si rien ne s'est passé (sauf rapport quotidien)
+    # User a signalé que les notifs horaires "aucune action" = spam inutile.
+    # Pattern hérité de Bot 1 run_once.py.
+    has_activity = bool(actions) or bool(signals_taken)
+    is_daily_report = (now.hour == 7)  # 7h UTC = 9h Paris
+
+    if has_activity or is_daily_report:
+        try:
+            alertes.alerte_cycle_summary(
+                account_state=state,
+                open_positions=open_positions,
+                actions=actions,
+                signals_taken=signals_taken,
+                btc_regime=btc_regime,
+            )
+            print("Résumé Telegram envoyé.")
+        except Exception as e:
+            logger.warning(f"Résumé Telegram échoué : {e}")
+    else:
+        print(
+            f"Aucune activité ce cycle — pas de notification Telegram "
+            f"(prochain rapport quotidien à 07:00 UTC)."
         )
-        print("Résumé Telegram envoyé.")
-    except Exception as e:
-        logger.warning(f"Résumé Telegram échoué : {e}")
 
     print(f"\n{'='*60}")
     print(f"  Cycle terminé : {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}")
